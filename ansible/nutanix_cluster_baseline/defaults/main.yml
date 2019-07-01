@@ -1,0 +1,56 @@
+---
+cluster_location: "location1"
+cluster_suffix: #domain suffix of cluster dns name
+nutanix_url: https://{{ cluster_name }}.{{ cluster_suffix }}:9440/api/nutanix
+role_url:  https://{{ cluster_name }}.{{ cluster_suffix }}:9440/PrismGateway/services/rest/v1/authconfig/directories/{{ auth_directory.name }}/role_mappings
+ntp: 
+- #"1.1.1.1"
+- #"2.2.2.2"
+dns: 
+- #"1.1.1.1"
+- #"2.2.2.2"
+smtp:
+  address: #SMTP relay address
+  from_email_address: #"{{ cluster_name }}@{{ cluster_suffix }}"
+  port: 25
+  secure_mode: "NONE"
+  username:
+  password:
+alerts:
+  default_nutanix_email: nos-alerts@nutanix.com
+  enable: true
+  enable_default_nutanix_email: true
+  enable_email_digest: true
+  email_contact_list:
+  - #recipient 1
+  - #recipient 2
+proxy:
+  address: #"1.1.1.1"
+  name: #dns name of proxy
+  port: #8080
+  proxy_types:
+  - "http"
+  - "https"
+proxy_whitelist: #array of whitelists in this format...
+- target: #"1.1.1.0/255.255.255.0"|"1.1.1.1"
+  target_type: #"IPV4_NETWORK_MASK"|IPV4_ADDRESS"
+auth_types:
+- "LOCAL"
+- "DIRECTORY_SERVICE"
+auth_directory:
+  connection_type: "LDAP"
+  directory_type: "ACTIVE_DIRECTORY"
+  directory_url: #"ldap://yourLDAPendpoint:389"
+  domain: #fqdn of AD domain
+  group_search_type: "NON_RECURSIVE"
+  name: #Display name
+  service_account_username: #upn of ldap bind account 
+  service_account_password: #bind account pw
+role_mappings:
+  - role: "ROLE_CLUSTER_ADMIN"
+    group: #array
+      - #"Nutanix Admin AD Group 1"
+      - #"Nutanix Admin AD Group 2"
+  - role: "ROLE_CLUSTER_VIEWER"
+    group: #array
+      - #"Nutanix Viewer AD Group 1"

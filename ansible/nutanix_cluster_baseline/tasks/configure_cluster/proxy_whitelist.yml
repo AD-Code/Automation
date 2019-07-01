@@ -1,0 +1,46 @@
+---
+  - name: get proxy whitelist info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v1/http_proxies/whitelist"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_proxy_whitelist
+#  - debug: var=cluster_proxy_whitelist.json
+
+  - name: compare configured proxy whitelist to defined proxy whitelist
+    set_fact:
+      extra_proxy_whitelist: 
+    when: 
+    - item not in proxy_whitelist | map(attribute='target')|list
+    with_items: "{{ cluster_proxy_whitelist.json.whitelist | map(attribute='target') | list }}"
+    register: compare_configured_whitelist
+#  - debug: var=compare_configured_whitelist
+  
+
+  - name: compare defined proxy whitelist to configured proxy whitelist
+    set_fact:
+      missing_proxy_whitelist: 
+    when: 
+    - item not in cluster_proxy_whitelist.json.whitelist | map(attribute='target')|list
+    with_items: "{{ proxy_whitelist | map(attribute='target') | list }}"
+    register: compare_defined_whitelist
+#  - debug: var=compare_defined_whitelist
+  
+  
+  - name: set proxy whitelist info in the cluster
+    uri:
+      url: "{{ nutanix_url }}/v1/http_proxies/whitelist"
+      method: PUT
+      body:
+        whitelist: "{{ proxy_whitelist }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    changed_when: true
+    register: update_proxy_whitelist
+    when: extra_proxy_whitelist is defined or missing_proxy_whitelist is defined
+#  - debug: var=update_proxy_whitelist

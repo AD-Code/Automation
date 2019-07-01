@@ -1,0 +1,45 @@
+---
+  - name: get ntp info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/ntp_servers"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_ntp
+#  - debug: var=cluster_ntp.json
+  
+  - name: set ntp addresses
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/ntp_servers"
+      method: POST
+      body:
+        value: "{{ item }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 200,201
+    with_items: "{{ ntp }}"
+    when: item not in cluster_ntp.json
+    changed_when: true
+    register: ntp_update
+    ignore_errors: true
+#  - debug: var=ntp_update
+
+  - name: remove bad ntp addresses
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/ntp_servers/{{ item }}"
+      method: DELETE
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 204
+    when: item not in ntp
+    changed_when: true
+    register: ntp_remove_bad_entry
+    ignore_errors: true
+    with_items: "{{ cluster_ntp.json }}"
+#  - debug: var=ntp_remove_bad_entry

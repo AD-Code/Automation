@@ -1,0 +1,45 @@
+---
+  - name: get dns info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/name_servers"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_dns
+#  - debug: var=cluster_dns.json
+  
+  - name: set dns addresses
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/name_servers"
+      method: POST
+      body:
+        value: "{{ item }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 200,201
+    with_items: "{{ dns }}"
+    changed_when: true
+    when: item not in cluster_dns.json
+    register: dns_update
+    ignore_errors: true
+#  - debug: var=dns_update
+
+  - name: remove bad dns addresses
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/name_servers/{{ item }}"
+      method: DELETE
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 204
+    when: item not in dns
+    changed_when: true
+    register: dns_remove_bad_entry
+    ignore_errors: true
+    with_items: "{{ cluster_dns.json }}"
+#  - debug: var=dns_remove_bad_entry

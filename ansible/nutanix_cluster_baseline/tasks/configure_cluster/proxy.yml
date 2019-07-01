@@ -1,0 +1,100 @@
+---
+  - name: get proxy configuration info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/http_proxies"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_proxies
+#  - debug: var=cluster_proxies.json
+  
+  - name: compare configured proxy names to defined proxy names
+    set_fact:
+      proxy_name_mismatch: 
+    when: 
+    - cluster_proxies.json.metadata.count > "0"
+    - cluster_proxies.json.entities[0].name != proxy.name
+  
+  - name: compare configured proxy types to defined proxy types
+    set_fact:
+      extra_proxy_type: 
+    when: 
+    - cluster_proxies.json.metadata.count > "0"
+    - item not in proxy.proxy_types
+    with_items: "{{ cluster_proxies.json.entities[0].proxy_types }}"
+    
+  - name: compare defined proxy types to configured proxy types
+    set_fact:
+      missing_proxy_type: 
+    when: 
+    - cluster_proxies.json.metadata.count > "0"
+    - item not in cluster_proxies.json.entities[0].proxy_types
+    with_items: "{{ proxy.proxy_types }}"
+    
+
+  - name: delete proxy from {{ cluster_name }}
+    uri:
+      url: "{{ nutanix_url }}/v2.0/http_proxies/{{ cluster_proxies.json.entities[0].name }}"
+      method: DELETE
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      status_code: 204
+      return_content: yes
+    changed_when: true
+    register: proxy_deleted
+    when: proxy_name_mismatch is defined
+    
+#  - fail:
+  - name: create new proxy configuration for cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/http_proxies"
+      method: POST
+      body:
+        address: "{{ proxy.address }}"
+        name: "{{ proxy.name }}"
+        port: "{{ proxy.port }}"
+        proxy_types: "{{ proxy.proxy_types }}"
+#        username: "{{ proxy.username }}"
+      body_format: json
+      status_code: 201
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    changed_when: true
+    register: create_proxies
+    ignore_errors: true
+    when: cluster_proxies.json.metadata.count < 1 or
+          proxy_name_mismatch is defined
+#  - debug: var=create_proxies  
+  
+  - name: set proxy configuration for cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/http_proxies"
+      method: PUT
+      body:
+        address: "{{ proxy.address }}"
+        name: "{{ proxy.name }}"
+        port: "{{ proxy.port }}"
+        proxy_types: "{{ proxy.proxy_types }}"
+#        username: "{{ proxy.username }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    changed_when: true
+    register: update_proxies
+    ignore_errors: true
+    when:  (cluster_proxies.json.metadata.count > 0) and 
+           (cluster_proxies.json.entities[0].port != proxy.port or
+           extra_proxy_type is defined or
+           missing_proxy_type is defined)
+           #cluster_proxies.json.entities[0].username != proxy.username or
+#  - debug: var=update_proxies
+
+  - name: pause for proxy settings to implement
+    pause:
+      seconds: 10
+    when: update_proxies.changed == true or create_proxies.changed == true

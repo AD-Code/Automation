@@ -1,0 +1,26 @@
+---
+
+- name: get proxy configuration info from {{ cluster_name }}
+  uri:
+    url: "{{ nutanix_url }}/v2.0/http_proxies"
+    method: GET
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    return_content: yes
+  register: cluster_proxies
+#- debug: var=cluster_proxies  
+
+- name: delete proxy from {{ cluster_name }}
+  uri:
+    url: "{{ nutanix_url }}/v2.0/http_proxies/{{ cluster_proxies.json.entities[0].name }}"
+    method: DELETE
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    status_code: 204
+    return_content: yes
+  changed_when: true
+  when: cluster_proxies.json.metadata.count != 0
+
+  

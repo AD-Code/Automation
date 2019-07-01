@@ -1,0 +1,48 @@
+---
+- name: get alert configuration info from cluster
+  uri:
+    url: "{{ nutanix_url }}/v2.0/alerts/configuration"
+    method: GET
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    return_content: yes
+  register: cluster_alerts
+#- debug: var=cluster_alerts.json
+
+- name: compare defined alert email recipients to configured recipients
+  set_fact: 
+    missing_recipient: 
+  when: item not in cluster_alerts.json.email_contact_list
+  with_items: "{{ alerts.email_contact_list }}"
+  
+- name: compare configured alert email recipients to defined recipients
+  set_fact:
+    extra_recipient: 
+  when: item not in alerts.email_contact_list
+  with_items: "{{ cluster_alerts.json.email_contact_list }}"
+
+- name: set alert configuration for cluster
+  uri:
+    url: "{{ nutanix_url }}/v2.0/alerts/configuration"
+    method: PUT
+    body:
+      default_nutanix_email: "{{ alerts.default_nutanix_email }}"
+      enable: "{{ alerts.enable }}"
+      enable_default_nutanix_email: "{{ alerts.enable_default_nutanix_email }}"
+      enable_email_digest: "{{ alerts.enable_email_digest }}"
+      email_contact_list: "{{ alerts.email_contact_list }}"
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    return_content: yes
+  changed_when: true
+  register: update_alerts
+#  ignore_errors: true
+  when:  cluster_alerts.json.default_nutanix_email != alerts.default_nutanix_email or
+         cluster_alerts.json.enable != alerts.enable or
+         cluster_alerts.json.enable_default_nutanix_email != alerts.enable_default_nutanix_email or
+         cluster_alerts.json.enable_email_digest != alerts.enable_email_digest or
+         missing_recipient is defined or
+         extra_recipient is defined
+#- debug: var=update_alerts

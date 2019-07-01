@@ -1,0 +1,30 @@
+---
+- name: get alert configuration info from cluster
+  uri:
+    url: "{{ nutanix_url }}/v2.0/alerts/configuration"
+    method: GET
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    return_content: yes
+  register: cluster_alerts
+#- debug: var=cluster_alerts.json
+
+- name: set alert configuration for cluster
+  uri:
+    url: "{{ nutanix_url }}/v2.0/alerts/configuration"
+    method: PUT
+    body:
+      enable: false
+      enable_default_nutanix_email: false
+      enable_email_digest: false
+    body_format: json
+    headers:
+      Authorization: "{{ authorization }}"
+    return_content: yes
+  changed_when: true
+  when: cluster_alerts.json.enable != false or
+        cluster_alerts.json.enable_default_nutanix_email != false or
+        cluster_alerts.json.enable_email_digest != false
+# register: update_alerts
+#- debug: var=update_alerts

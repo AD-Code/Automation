@@ -1,0 +1,37 @@
+---
+  - name: get smtp info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/smtp"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_smtp
+#  - debug: var=cluster_smtp.json
+  
+#  - fail:
+  
+  - name: set smtp address
+    uri:
+      url: "{{ nutanix_url }}/v2.0/cluster/smtp"
+      method: PUT
+      body:
+        address: "{{ smtp.address }}"
+        from_email_address: "{{ smtp.from_email_address }}"
+        port: "{{ smtp.port }}"
+        secure_mode: "{{ smtp.secure_mode }}"
+        username: 
+        password: 
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: update
+    changed_when: true
+    ignore_errors: true
+    when: cluster_smtp.json.address != smtp.address or 
+          cluster_smtp.json.from_email_address != smtp.from_email_address or 
+          cluster_smtp.json.port != smtp.port or 
+          cluster_smtp.json.secure_mode != smtp.secure_mode 
+#  - debug: var=update

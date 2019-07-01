@@ -1,0 +1,197 @@
+---
+  - name: get role from cluster
+    uri:
+      url: "{{ role_url }}"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: current_role_mappings
+#  - debug: var=current_role_mappings.json
+
+  
+  - name: compare configured roles to defined roles
+    set_fact: 
+      roles_do_not_match: "{{ roles_do_not_match|default([]) + [item.1] }}"
+    when: 
+    - item[0]['role'] == item[1]['role']
+    - item[0]['entityType'] == item[1]['type']
+    - item[0]['entityValues'] | list | sort | join(',') | hash('md5') != item[1]['members'] | list | sort | join(',') | hash('md5')
+    with_nested:
+      - "{{ current_role_mappings.json }}"
+      - "{{ role_mappings }}"
+    register: existing_mapping_comparison
+#  - debug: var=existing_mapping_comparison 
+
+#  - debug: var=roles_do_not_match
+
+  - name: get defined user roles
+    set_fact: 
+      defined_user_roles: "{{ defined_user_roles|default([]) + [item] }}"
+    when: item.type | upper == 'USER'
+    with_items: "{{ role_mappings }}"
+#  - debug: var=defined_user_roles
+
+  - name: get defined group roles
+    set_fact: 
+      defined_group_roles: "{{ defined_group_roles|default([]) + [item] }}"
+    when: item.type | upper == 'GROUP'
+    with_items: "{{ role_mappings }}"
+#  - debug: var=defined_group_roles  
+  
+  - name: get configured user roles
+    set_fact: 
+      configured_user_roles: "{{ configured_user_roles|default([]) + [item] }}"
+    when: item.entityType | upper == 'USER'
+    with_items: "{{ current_role_mappings.json }}"
+#  - debug: var=configured_user_roles
+
+  - name: get configured group roles
+    set_fact: 
+     configured_group_roles: "{{ configured_group_roles|default([]) + [item] }}"
+    when: item.entityType | upper == 'GROUP'
+    with_items: "{{ current_role_mappings.json }}"
+#  - debug: var=configured_group_roles  
+
+  - name: if defined user roles are not empty find extra configured user roles
+    set_fact:
+      extra_roles: "{{ extra_roles|default([]) + [item] }}"
+    when: 
+    - configured_user_roles is defined
+    - defined_user_roles is defined
+    - item.role not in defined_user_roles | map(attribute='role') | list
+    with_items: "{{ configured_user_roles }}"
+    
+  - name: if defined user roles are empty find extra configured user roles
+    set_fact:
+      extra_roles: "{{ extra_roles|default([]) + [item] }}"
+    when: 
+    - defined_user_roles is not defined
+    - configured_user_roles is defined
+    - extra_roles is not defined
+    with_items: "{{ configured_user_roles }}"
+    
+  - name: if defined group roles are not empty find extra configured user roles
+    set_fact:
+      extra_roles: "{{ extra_roles|default([]) + [item] }}"
+    when: 
+    - configured_group_roles is defined
+    - defined_group_roles is defined
+    - item.role not in defined_group_roles | map(attribute='role') | list
+    - extra_roles is not defined
+    with_items: "{{ configured_group_roles }}"
+
+  - name: if defined group roles are empty find extra configured group roles
+    set_fact:
+      extra_roles: "{{ extra_roles|default([]) + [item] }}"
+    when: 
+    - defined_group_roles is not defined
+    - configured_group_roles is defined
+    - extra_roles is not defined
+    with_items: "{{ configured_group_roles }}"
+    
+  - name: find missing user roles
+    set_fact:
+      missing_roles: "{{ missing_roles|default([]) + [item] }}"
+    when: 
+    - defined_user_roles is defined
+    - configured_user_roles is defined
+    - item.role not in configured_user_roles | map(attribute='role') | list
+    - extra_roles is not defined
+    with_items: "{{ defined_user_roles }}"
+    
+  - name: if configured user roles are empty, add all defined user roles
+    set_fact:
+      missing_roles: "{{ missing_roles|default([]) + [item] }}"
+    with_items: "{{ defined_user_roles }}"
+    when: 
+    - defined_user_roles is defined
+    - configured_user_roles is not defined
+    - extra_roles is not defined
+    
+  - name: find missing group roles
+    set_fact:
+      missing_roles: "{{ missing_roles|default([]) + [item] }}"
+    when: 
+    - defined_group_roles is defined
+    - configured_group_roles is defined
+    - item.role not in configured_group_roles | map(attribute='role') | list
+    - extra_roles is not defined
+    with_items: "{{ defined_group_roles }}"
+#  - debug: var=missing_roles
+
+  - name: if configured group roles are empty, add all defined group roles
+    set_fact:
+      missing_roles: "{{ missing_roles|default([]) + [item] }}"
+    with_items: "{{ defined_group_roles }}"
+    when: 
+    - defined_group_roles is defined
+    - configured_group_roles is not defined
+    - extra_roles is not defined
+      
+#  - fail:
+  - name: delete all roles if extra role is found
+    uri:
+      url: "{{ role_url }}"
+      method: DELETE
+      body:
+        directoryName: "{{ auth_directory.name }}"
+#        entityType: "{{ item.type | upper }}"
+#        entityValues: "{{ item.members }}"
+#        role: "{{ item.role }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: delete_role_mappings
+#    with_items: "{{ extra_roles }}"
+    when: extra_roles is defined
+    changed_when: true
+#  - debug: var=create_role_mappings
+#  - fail:
+  - name: if extra roles were found set all roles to missing so that they will be re-created.
+    set_fact:
+      missing_roles: "{{ role_mappings }}"
+    when: extra_roles is defined
+
+#  - fail:
+  - name: update roles if they do not match
+    uri:
+      url: "{{ role_url }}"
+      method: PUT
+      body:
+        directoryName: "{{ auth_directory.name }}"
+        entityType: "{{ item.type | upper }}"
+        entityValues: "{{ item.members }}"
+        role: "{{ item.role }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: update_role_mappings
+    with_items: "{{ roles_do_not_match }}"
+    when: 
+    - roles_do_not_match is defined
+    - extra_roles is not defined
+    changed_when: true
+#  - debug: var=update_role_mappings
+
+  - name: create role if they do not exist
+    uri:
+      url: "{{ role_url }}"
+      method: POST
+      body:
+        directoryName: "{{ auth_directory.name }}"
+        entityType: "{{ item.type | upper }}"
+        entityValues: "{{ item.members }}"
+        role: "{{ item.role }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: create_role_mappings
+    with_items: "{{ missing_roles }}"
+    when: missing_roles is defined
+    changed_when: true
+#  - debug: var=create_role_mappings

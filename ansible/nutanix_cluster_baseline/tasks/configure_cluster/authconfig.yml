@@ -1,0 +1,134 @@
+---
+  - name: get authentication configuration info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/auth_types"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_authconfig_auth_types
+#  - debug: var=cluster_authconfig_auth_types.json
+
+  - name: get authentication directories configuration info from cluster
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/directories"
+      method: GET
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    register: cluster_authconfig_directories
+#  - debug: var=cluster_authconfig_directories.json
+
+  - name: Too many directories found.  Please invesigate.
+    set_fact:
+      extra_directories:
+    when: cluster_authconfig_directories.json.metadata.count > 1
+  
+  - name: compare configured auth types to defined auth types
+    set_fact:
+      extra_auth_type: 
+    when: 
+    - item not in auth_types
+    - extra_directories is not defined
+    with_items: "{{ cluster_authconfig_auth_types.json }}"
+    
+  - name: compare defined auth types to configured auth types
+    set_fact:
+      missing_auth_type: 
+    when: 
+    - item not in cluster_authconfig_auth_types.json
+    - extra_directories is not defined
+    with_items: "{{ auth_types }}"
+    
+  - name: compare configured auth directory against defined directory
+    set_fact:
+      directories_do_not_match:
+    when: cluster_authconfig_directories.json.metadata.count != 1 or cluster_authconfig_directories.json.entities[0].connection_type != auth_directory.connection_type or
+           cluster_authconfig_directories.json.entities[0].directory_type != auth_directory.directory_type or 
+           cluster_authconfig_directories.json.entities[0].directory_url != auth_directory.directory_url or
+           cluster_authconfig_directories.json.entities[0].domain != auth_directory.domain or
+           cluster_authconfig_directories.json.entities[0].group_search_type != auth_directory.group_search_type or
+           cluster_authconfig_directories.json.entities[0].name != auth_directory.name
+    register: compare_auth_directories
+#  - debug: var=compare_auth_directories
+    
+  - name: Delete auth config if needed
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/"
+      method: DELETE
+      body:
+        value: true
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    changed_when: true
+    when: extra_directories is defined
+    register: cluster_authconfig_delete_auth_config
+#  - debug: var=cluster_authconfig_delete_auth_config
+
+
+  - name: set auth types if needed
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/"
+      method: PUT
+      body:
+        auth_type_list: "{{ auth_types }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+    changed_when: true
+    when: extra_auth_type is defined or missing_auth_type is defined or extra_directories is defined
+    register: cluster_authconfig_set_auth_types
+#  - debug: var=cluster_authconfig_set_auth_types
+
+  - name: Create authentication directories 
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/directories"
+      method: POST
+      body:
+        connection_type: "{{ auth_directory.connection_type }}"
+        directory_type: "{{ auth_directory.directory_type }}"
+        directory_url: "{{ auth_directory.directory_url }}"
+        domain: "{{ auth_directory.domain }}"
+        group_search_type: "{{ auth_directory.group_search_type }}"
+        name: "{{ auth_directory.name }}"
+        service_account_username: "{{ auth_directory.service_account_username }}"
+        service_account_password: "{{ auth_directory.service_account_password }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 201
+    changed_when: true
+    when: cluster_authconfig_directories.json.metadata.count == 0 or extra_directories is defined
+    register: create_authconfig_directories
+#  - debug: var=create_authconfig_directories.json
+
+  - name: Update authentication directories 
+    uri:
+      url: "{{ nutanix_url }}/v2.0/authconfig/directories"
+      method: PUT
+      body:
+        connection_type: "{{ auth_directory.connection_type }}"
+        directory_type: "{{ auth_directory.directory_type }}"
+        directory_url: "{{ auth_directory.directory_url }}"
+        domain: "{{ auth_directory.domain }}"
+        group_search_type: "{{ auth_directory.group_search_type }}"
+        name: "{{ auth_directory.name }}"
+        service_account_username: "{{ auth_directory.service_account_username }}"
+        service_account_password: "{{ auth_directory.service_account_password }}"
+      body_format: json
+      headers:
+        Authorization: "{{ authorization }}"
+      return_content: yes
+      status_code: 200
+    changed_when: true
+    when: 
+    - directories_do_not_match is defined 
+    - cluster_authconfig_directories.json.metadata.count == 1
+    register: update_authconfig_directories
+#  - debug: var=update_authconfig_directories.json

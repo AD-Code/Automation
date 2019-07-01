@@ -1,0 +1,38 @@
+---
+
+  - name: get {{ cluster_name }} specific variables
+    include_vars: inventory/{{ cluster_name }}.yml
+
+  - name: Get auth token
+    include_vars: vars/creds.yml
+  
+  - name: get {{ cluster_location }} specific variables
+    include_vars: vars/{{ cluster_location }}/main.yml
+    
+  - name: get {{ cluster_type }} specific variables
+    include_vars: vars/{{ cluster_location }}/{{ cluster_type }}.yml
+    
+  - name: get {{ cluster_purpose }} specific variables
+    include_vars: vars/purpose/{{ cluster_purpose }}.yml
+    when: cluster_type != 'pc'
+    
+    
+  - name: configure smtp
+    include_tasks: configure_cluster/smtp.yml
+  - name: configure ntp
+    include_tasks: configure_cluster/ntp.yml
+  - name: configure dns
+    include_tasks: configure_cluster/dns.yml
+  - name: configure alert notifications
+    include_tasks: configure_cluster/enable_alerts.yml
+  - name: configure proxy
+    include_tasks: configure_cluster/proxy.yml
+  - name: configure proxy whitelist
+    include_tasks: configure_cluster/proxy_whitelist.yml
+  - name: configure authentication
+    include_tasks: configure_cluster/authconfig.yml
+  - name: cluster role mappings
+    include_tasks: configure_cluster/role_mappings.yml
+#  - name: configure storage containers
+#    include_tasks: configure_cluster/storage_containers.yml
+#    when: cluster_type != 'pc'
