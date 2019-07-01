@@ -17,7 +17,7 @@ This role makes use of the defaults/main.yml to house almost all configurations.
 	/Location1
 		main.yml #holds specific information for location1
 		pc.yml #holds Prism Central specific data
-		pe.yml #hosts Prism Elemnt specific data
+		pe.yml #holds Prism Element specific data
 	/Location2
 		main.yml
 		pc.yml
@@ -46,7 +46,7 @@ ansible-playbook configure_cluster -e cluster_name="clustername"
 
   tasks:
   
-    - name: configure cluster
+    - name: configure cluster to desired state
       include_role:
         name: nutanix_cluster_baseline
         tasks_from: configure_cluster/main.yml
