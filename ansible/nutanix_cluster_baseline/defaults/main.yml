@@ -1,5 +1,7 @@
 ---
 cluster_location: "location1"
+cluster_type: #pe|pe
+cluster_purpose: # vdi
 cluster_suffix: #domain suffix of cluster dns name
 nutanix_url: https://{{ cluster_name }}.{{ cluster_suffix }}:9440/api/nutanix
 role_url:  https://{{ cluster_name }}.{{ cluster_suffix }}:9440/PrismGateway/services/rest/v1/authconfig/directories/{{ auth_directory.name }}/role_mappings

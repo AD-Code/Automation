@@ -1,0 +1,8 @@
+---
+cluster_name: short name of prism goes here #required
+cluster_location: location1
+cluster_purpose: vdi 
+cluster_type: pe
+cluster_ip: 10.1.1.100
+dataservices_ip: 10.1.1.101
+description: Production VDI Cluster
