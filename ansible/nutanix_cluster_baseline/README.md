@@ -14,21 +14,21 @@ Role Variables
 This role makes use of the defaults/main.yml to house almost all configurations.  This role was developed with the following inventory format in use to allow for flexability 
 
 /vars<br>
-	/Location1<br>
-		main.yml #holds specific information for location1<br>
-		pc.yml #holds Prism Central specific data<br>
-		pe.yml #holds Prism Element specific data<br>
-	/Location2<br>
-		main.yml<br>
-		pc.yml<br>
-		pe.yml<br>
-	/inventory<br>
-		clustername.yml<br>
-	/purpose<br>
-		vdi.yml<br>
-		vsi.yml<br>
-	creds.yml<br>
-	main.yml<br>
+  * /Location1<br>
+  * 	main.yml #holds specific information for location1<br>
+  * 	pc.yml #holds Prism Central specific data<br>
+  * 	pe.yml #holds Prism Element specific data<br>
+  * /Location2<br>
+  * 	main.yml<br>
+  * 	pc.yml<br>
+  * 	pe.yml<br>
+  * /inventory<br>
+  * 	clustername.yml<br>
+  * /purpose<br>
+  * 	vdi.yml<br>
+  * 	vsi.yml<br>
+  * creds.yml<br>
+  * main.yml<br>
 
 
 Dependencies
