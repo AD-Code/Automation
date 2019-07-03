@@ -1,2 +1,11 @@
 ---
-# Virtualized server specific cluster information
+default_containers:
+- name: "NTX_{{  cluster_name|upper }}_Servers"
+  compression_enabled: true
+  compression_delay_in_secs: 0
+  encrypted: true
+  enable_software_encryption: true
+  replication_factor: 2
+  on_disk_dedup: "OFF"
+  erasure_code: "ON"
+  erasure_code_delay_secs: 0
