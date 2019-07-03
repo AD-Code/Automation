@@ -20,13 +20,13 @@ This role makes use of the defaults/main.yml to house almost all configurations.
   * 	pe.yml #holds Prism Element specific data<br>
   * /Location2<br>
   * 	main.yml<br>
-  * 	pc.yml<br>
-  * 	pe.yml<br>
+  * 	pc.yml<br> #prism central vars
+  * 	pe.yml<br> #prism element vars
   * /inventory<br>
   * 	clustername.yml<br>
   * /purpose<br>
-  * 	vdi.yml<br>
-  * 	vsi.yml<br>
+  * 	vdi.yml<br> #VDI clusters
+  * 	vsi.yml<br> #Server clusters
   * creds.yml<br>
   * main.yml<br>
 
@@ -50,6 +50,11 @@ ansible-playbook configure_cluster -e cluster_name="clustername"
       include_role:
         name: nutanix_cluster_baseline
         tasks_from: configure_cluster/main.yml
+        
+    - name: Disable alerts
+      include_role:
+        name: nutanix_cluster_baseline
+        tasks_from: maintenance_tasks/disable_alerts.yml
 
 License
 -------
