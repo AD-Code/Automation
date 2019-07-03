@@ -1,2 +1,5 @@
 ---
 # Location1 PrismCentral specific vars file for nutanix cluster
+proxy_whitelist:
+- target: "10.1.1.0/255.255.255.0"
+  target_type: "IPV4_NETWORK_MASK"
