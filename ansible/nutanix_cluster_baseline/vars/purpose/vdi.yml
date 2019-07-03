@@ -1,2 +1,16 @@
 ---
-# VDI specific informaiton for clusters
+default_containers:
+- name: "NTX_{{  cluster_name|upper }}_AppVolumes"
+  compression_enabled: true
+  compression_delay_in_secs: 0
+  encrypted: true
+  enable_software_encryption: true
+  replication_factor: 2
+  on_disk_dedup: "OFF"
+- name: "NTX_{{  cluster_name|upper }}_NonPersistentDesktops"
+  compression_enabled: true
+  compression_delay_in_secs: 0
+  encrypted: true
+  enable_software_encryption: true
+  replication_factor: 2
+  on_disk_dedup: "OFF"
