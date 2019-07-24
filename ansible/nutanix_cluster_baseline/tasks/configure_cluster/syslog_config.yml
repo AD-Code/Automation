@@ -1,0 +1,131 @@
+---
+#- name: cluster status
+#  shell: /home/nutanix/cluster/bin/cluster status
+#  register: cluster_status
+#- debug: var=cluster_status
+#- fail:
+- name: get syslog status
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config get-status
+  register: syslog_status
+  changed_when: 1==2
+#- debug: var=syslog_list_config
+
+- name: get syslog list server
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config list-servers
+  register: syslog_server_list
+  changed_when: 1==2
+#- debug: var=syslog_server_list
+
+- name: set fact when no servers are defined
+  set_fact: 
+    no_servers_defined:
+  when: "'[None]' in syslog_server_list.stdout"
+
+- name: extract configured server name
+  set_fact:
+    configured_server_name: "{{ syslog_server_list.stdout_lines[1] | regex_replace('\\s') }}"
+  when: no_servers_defined is not defined
+  
+- name: extract configured server name
+  set_fact:
+    configured_server_name: "{{ configured_server_name | regex_replace('Name') }}"
+  when: configured_server_name is defined
+  
+- name: extract configured server name
+  set_fact:
+    configured_server_name: "{{ configured_server_name | regex_replace(':') }}"
+  when: configured_server_name is defined
+#- debug: var=configured_server_name
+
+- name: set fact when wrong server is defined
+  set_fact: 
+    wrong_server_defined:
+  when: 
+  - configured_server_name is defined
+  - configured_server_name|string|lower != syslog.server | string | lower
+  - syslog.server not in syslog_server_list.stdout
+
+- name: set fact when wrong IP is defined
+  set_fact:
+    wrong_ip:
+  when: 
+  - no_servers_defined is not defined
+  - syslog.ip_address not in syslog_server_list.stdout_lines[2]
+  
+- name: set fact when wrong port is defined
+  set_fact:
+    wrong_port:
+  when: 
+  - no_servers_defined is not defined
+  - syslog.port|string not in syslog_server_list.stdout_lines[3]
+
+- name: set fact when wrong protocol is defined
+  set_fact:
+    wrong_proto:
+  when: 
+  - no_servers_defined is not defined
+  - syslog.proto|upper not in syslog_server_list.stdout_lines[4]
+    
+- name: set fact when wrong relp is defined
+  set_fact:
+    wrong_relp:
+  when: 
+  - no_servers_defined is not defined
+  - syslog.relp_enabled|string|lower not in syslog_server_list.stdout_lines[5]
+    
+- name: get configured modules
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config list-modules server-name={{ syslog.server }}
+  register: configured_modules
+  when: 
+  - no_servers_defined is not defined 
+  - wrong_server_defined is not defined
+  changed_when: 1==2
+  
+#- debug: var=configured_modules
+
+- name: consolidate module output
+  set_fact:
+    consolidated_module_output: "{{ configured_modules.stdout_lines | unique }}"
+  when: 
+  - no_servers_defined is not defined 
+  - wrong_server_defined is not defined
+  - configured_modules.stdout_lines is defined
+#- debug: var=consolidated_module_output
+
+- name: missing module
+  set_fact:
+    missing_module:
+  when: 
+  - wrong_server_defined is not defined
+  - consolidated_module_output is defined
+  - item not in consolidated_module_output | join(',')
+  with_items: 
+  - "{{ syslog.modules }}"
+
+- name: other wrong config
+  set_fact:
+    other_wrong_config:
+  when: (wrong_server_defined is not defined and consolidated_module_output is defined) and (consolidated_module_output |list| count != (syslog.modules | count + 3) or 
+    syslog.level | upper not in consolidated_module_output | join(',') or 
+    syslog.include_monitor_logs | string | lower not in consolidated_module_output | join(','))
+    
+- name: remove syslog server when needed
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config remove-server name={{ configured_server_name }}
+  when: wrong_server_defined is defined or wrong_ip is defined or wrong_port is defined  or wrong_proto is defined or wrong_relp is defined or missing_module is defined or other_wrong_config is defined
+  changed_when: true
+  register: remove_server
+  
+- name: configure syslog server when needed
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config add-server name={{ syslog.server }} ip-address={{ syslog.ip_address }} port={{ syslog.port }} network-protocol={{ syslog.proto }} relp-enabled={{ syslog.relp_enabled }}
+  when: remove_server.changed == true or no_servers_defined is defined
+  changed_when: true
+  register: configure_server
+
+- name: configure all syslog modules
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config add-module server-name={{ syslog.server }} level={{ syslog.level }} include-monitor-logs={{ syslog.include_monitor_logs }} module-name={{ item }}
+  with_items: "{{ syslog.modules }}"
+  when: configure_server.changed == true
+
+- name: set syslog state
+  shell: /home/nutanix/prism/cli/ncli rsyslog-config set-status enable={{ syslog.enabled }}
+  when: syslog.enabled | string | lower not in syslog_status.stdout
